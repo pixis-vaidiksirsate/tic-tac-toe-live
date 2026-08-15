@@ -128,7 +128,7 @@
     line-height: 1.5;
   }
 
-  input[type="text"] {
+  input[type="text"], input[type="email"] {
     width: 100%;
     background: var(--cell-bg);
     border: 1px solid var(--panel-border);
@@ -141,10 +141,26 @@
     outline: none;
   }
 
-  input[type="text"]:focus { border-color: var(--x-color); }
+  input[type="text"]:focus, input[type="email"]:focus { border-color: var(--x-color); }
 
   .row { display: flex; gap: 10px; margin-top: 10px; }
-  .row.stack { flex-direction: column; }
+  .row.stack { flex-direction: column; gap: 16px; }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+  .field label {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.6px;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .privacy-note {
+    margin: 14px 0 0;
+    color: var(--muted);
+    font-size: 11.5px;
+    line-height: 1.5;
+  }
 
   button {
     cursor: pointer;
@@ -369,7 +385,7 @@
     .panel h2 { font-size: 18px; margin-bottom: 10px; }
     .panel p.hint { font-size: 14px; }
 
-    input[type="text"] { font-size: 17px; padding: 14px 16px; }
+    input[type="text"], input[type="email"] { font-size: 17px; padding: 14px 16px; }
     button { font-size: 16px; padding: 15px 22px; }
 
     .room-code-box { padding: 10px 16px; }
@@ -413,14 +429,21 @@
 
     <!-- NAME / EMAIL GATE -->
     <div class="panel" id="gate">
-      <h2>Before you play</h2>
-      <p class="hint">Enter your name and email to continue. Your name is shown to the other player; your email is only used to identify players and is never shown in the game.</p>
+      <h2>Welcome to Tic-Tac-Toe Live! 👋</h2>
+      <p class="hint">Enter your details to get started.</p>
       <div class="row stack">
-        <input type="text" id="gateName" placeholder="YOUR NAME" style="text-transform:none;letter-spacing:0.3px;" maxlength="40" autocomplete="name" />
-        <input type="text" id="gateEmail" placeholder="YOUR EMAIL" style="text-transform:none;letter-spacing:0.3px;" maxlength="80" autocomplete="email" />
+        <div class="field">
+          <label for="gateName">Your name</label>
+          <input type="text" id="gateName" placeholder="e.g. Alex" style="text-transform:none;letter-spacing:0.3px;" maxlength="40" autocomplete="name" autofocus />
+        </div>
+        <div class="field">
+          <label for="gateEmail">Email address</label>
+          <input type="email" inputmode="email" id="gateEmail" placeholder="you@example.com" style="text-transform:none;letter-spacing:0.3px;" maxlength="80" autocomplete="email" />
+        </div>
       </div>
+      <p class="privacy-note">Your name is shown to the other player. Your email is only used to identify you and is never shown in the game.</p>
       <div class="row">
-        <button class="primary" id="gateContinueBtn" style="width:100%">Continue</button>
+        <button class="primary" id="gateContinueBtn" style="width:100%">Let's Begin</button>
       </div>
       <div class="error" id="gateError"></div>
     </div>
@@ -738,24 +761,28 @@
     roomView.classList.add('hidden');
     landing.classList.add('hidden');
     gate.classList.remove('hidden');
+    setTimeout(() => gateName.focus(), 50);
   }
 
   gateContinueBtn.addEventListener('click', async () => {
     const name = gateName.value.trim();
     const email = gateEmail.value.trim();
     gateError.textContent = '';
-    if (!name) { gateError.textContent = 'Please enter your name.'; return; }
-    if (name.length > 40) { gateError.textContent = 'Name is too long.'; return; }
+    if (!name) { gateError.textContent = 'Please enter your name.'; gateName.focus(); return; }
+    if (name.length > 40) { gateError.textContent = 'Name is too long.'; gateName.focus(); return; }
     const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
-    if (!emailOk) { gateError.textContent = 'Please enter a valid email address.'; return; }
+    if (!emailOk) { gateError.textContent = 'Please enter a valid email address.'; gateEmail.focus(); return; }
 
     gateContinueBtn.disabled = true;
+    const originalBtnText = gateContinueBtn.textContent;
+    gateContinueBtn.textContent = 'Setting up…';
     playerName = name;
     playerEmail = email;
     localStorage.setItem('tttPlayerName', name);
     localStorage.setItem('tttPlayerEmail', email);
     await submitLead(name, email);
     gateContinueBtn.disabled = false;
+    gateContinueBtn.textContent = originalBtnText;
     showLanding();
   });
 
@@ -1052,6 +1079,7 @@
   createBtn.addEventListener('click', createGame);
   joinBtn.addEventListener('click', joinGame);
   joinCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinGame(); });
+  gateName.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); gateEmail.focus(); } });
   gateEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') gateContinueBtn.click(); });
   playAgainBtn.addEventListener('click', playAgain);
   leaveBtn.addEventListener('click', leaveRoom);
