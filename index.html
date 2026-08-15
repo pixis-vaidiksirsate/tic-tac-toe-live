@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Tic-Tac-Toe Live</title>
+<style>
+  :root {
+    --bg: #0b0d12;
+    --panel: #14171f;
+    --panel-border: #262b36;
+    --cell-bg: #1a1e28;
+    --cell-hover: #20242f;
+    --x-color: #4fd1ff;
+    --o-color: #ff8a5c;
+    --win-color: #39ff88;
+    --text: #eef0f5;
+    --muted: #7d8290;
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+    background: radial-gradient(circle at 50% 15%, #12151d 0%, var(--bg) 60%);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  body {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+  }
+
+  .app {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 16px;
+    width: 100%;
+    max-width: 440px;
+  }
+
+  .title {
+    font-size: 16px;
+    font-weight: 700;
+    color: var(--text);
+    letter-spacing: 0.6px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .title-dot {
+    width: 9px;
+    height: 9px;
+    border-radius: 50%;
+    background: var(--x-color);
+    box-shadow: 0 0 10px var(--x-color);
+  }
+
+  .conn {
+    font-size: 11px;
+    color: var(--muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+
+  .conn-dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: #ff5468;
+  }
+
+  .conn-dot.online { background: var(--win-color); }
+
+  .panel {
+    width: 100%;
+    background: linear-gradient(180deg, #171b24, #12151d);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    padding: 22px;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.02);
+  }
+
+  .panel h2 {
+    margin: 0 0 14px;
+    font-size: 15px;
+    color: var(--text);
+  }
+
+  .panel p.hint {
+    margin: 0 0 16px;
+    color: var(--muted);
+    font-size: 12.5px;
+    line-height: 1.5;
+  }
+
+  input[type="text"] {
+    width: 100%;
+    background: var(--cell-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 9px;
+    padding: 11px 14px;
+    color: var(--text);
+    font-size: 15px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    outline: none;
+  }
+
+  input[type="text"]:focus { border-color: var(--x-color); }
+
+  .row { display: flex; gap: 10px; margin-top: 10px; }
+  .row.stack { flex-direction: column; }
+
+  button {
+    cursor: pointer;
+    border: none;
+    outline: none;
+    border-radius: 10px;
+    padding: 11px 20px;
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    transition: transform 0.12s ease, filter 0.12s ease;
+  }
+
+  button:hover { filter: brightness(1.08); }
+  button:active { transform: scale(0.96); }
+  button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+  button.primary { background: var(--x-color); color: #061018; flex: 1; }
+  button.secondary { background: var(--o-color); color: #1a0d05; flex: 1; }
+  button.ghost {
+    background: transparent;
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+  }
+
+  .divider {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    color: var(--muted);
+    font-size: 11px;
+    margin: 18px 0;
+  }
+  .divider::before, .divider::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: var(--panel-border);
+  }
+
+  .error {
+    color: #ff5468;
+    font-size: 12.5px;
+    margin-top: 10px;
+    min-height: 16px;
+  }
+
+  /* --- room view --- */
+  .room-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    width: 100%;
+  }
+
+  .room-code-box {
+    background: var(--cell-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 10px;
+    padding: 8px 14px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .room-code-box .code {
+    font-size: 18px;
+    font-weight: 800;
+    letter-spacing: 3px;
+    color: var(--x-color);
+  }
+
+  .role-chip {
+    font-size: 12px;
+    padding: 6px 12px;
+    border-radius: 8px;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+  }
+  .role-chip.role-x { background: rgba(79,209,255,0.12); color: var(--x-color); border: 1px solid rgba(79,209,255,0.4); }
+  .role-chip.role-o { background: rgba(255,138,92,0.12); color: var(--o-color); border: 1px solid rgba(255,138,92,0.4); }
+
+  .status {
+    min-height: 22px;
+    font-size: 15px;
+    font-weight: 600;
+    color: var(--muted);
+    letter-spacing: 0.2px;
+    text-align: center;
+  }
+  .status .turn-x { color: var(--x-color); }
+  .status .turn-o { color: var(--o-color); }
+  .status.win { color: var(--win-color); }
+
+  .board-wrap {
+    padding: 14px;
+    border-radius: 18px;
+    background: #0d1016;
+    border: 1px solid var(--panel-border);
+  }
+
+  .board {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-template-rows: repeat(3, 1fr);
+    gap: 8px;
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .cell {
+    appearance: none;
+    background: var(--cell-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 38px;
+    font-weight: 800;
+    font-family: inherit;
+    cursor: pointer;
+    color: var(--text);
+    user-select: none;
+    transition: background 0.15s ease, transform 0.1s ease;
+  }
+
+  .cell:hover:not(.filled):not(.locked) { background: var(--cell-hover); }
+  .cell.filled, .cell.locked { cursor: default; }
+  .cell.x { color: var(--x-color); text-shadow: 0 0 16px rgba(79, 209, 255, 0.35); }
+  .cell.o { color: var(--o-color); text-shadow: 0 0 16px rgba(255, 138, 92, 0.35); }
+  .cell.win-cell {
+    background: rgba(57, 255, 136, 0.12);
+    border-color: rgba(57, 255, 136, 0.5);
+    color: var(--win-color) !important;
+  }
+
+  .footer-hint {
+    color: var(--muted);
+    font-size: 12px;
+    text-align: center;
+  }
+
+  .hidden { display: none !important; }
+</style>
+</head>
+<body>
+  <div class="app">
+    <div class="room-header">
+      <div class="title"><span class="title-dot"></span>Tic-Tac-Toe Live</div>
+      <div class="conn"><span class="conn-dot" id="connDot"></span><span id="connText">connecting…</span></div>
+    </div>
+
+    <!-- LANDING -->
+    <div class="panel" id="landing">
+      <h2>Start a game</h2>
+      <p class="hint">Create a room and send the code (or link) to whoever you're playing with. They join with it and moves sync instantly.</p>
+      <button class="primary" id="createBtn" style="width:100%">Create New Game</button>
+
+      <div class="divider">OR JOIN ONE</div>
+
+      <input type="text" id="joinCodeInput" placeholder="ENTER ROOM CODE" maxlength="6" />
+      <div class="row">
+        <button class="secondary" id="joinBtn" style="width:100%">Join Game</button>
+      </div>
+      <div class="error" id="landingError"></div>
+    </div>
+
+    <!-- ROOM -->
+    <div class="app hidden" id="roomView" style="width:100%">
+      <div class="room-header">
+        <div class="room-code-box">
+          <span class="code" id="roomCodeDisplay">------</span>
+          <button class="ghost" id="copyLinkBtn" style="padding:6px 10px;font-size:11px;">Copy link</button>
+        </div>
+        <div class="role-chip" id="roleChip">You are —</div>
+      </div>
+
+      <div class="status" id="status">Waiting for opponent…</div>
+
+      <div class="board-wrap">
+        <div class="board" id="board"></div>
+      </div>
+
+      <div class="row">
+        <button class="primary" id="playAgainBtn" disabled style="width:100%">Play Again</button>
+        <button class="ghost" id="leaveBtn">Leave</button>
+      </div>
+
+      <p class="footer-hint">Share the room code above — anyone with it and this page's link can join and play live.</p>
+    </div>
+  </div>
+
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
+  import {
+    getDatabase, ref, onValue, get, update, runTransaction, onDisconnect
+  } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+  const firebaseConfig = {
+    apiKey: "AIzaSyAUg5ipqddXngh5m2_UIKR50DyPSJfXOFk",
+    authDomain: "tic-tac-toe-live-8f9c1.firebaseapp.com",
+    databaseURL: "https://tic-tac-toe-live-8f9c1-default-rtdb.firebaseio.com",
+    projectId: "tic-tac-toe-live-8f9c1",
+    storageBucket: "tic-tac-toe-live-8f9c1.firebasestorage.app",
+    messagingSenderId: "946123852509",
+    appId: "1:946123852509:web:ac6a65ccfdb00b200d6934"
+  };
+
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  const EMPTY_BOARD = ["", "", "", "", "", "", "", "", ""];
+  const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L ambiguity
+
+  const WIN_LINES = [
+    [0, 1, 2], [3, 4, 5], [6, 7, 8],
+    [0, 3, 6], [1, 4, 7], [2, 5, 8],
+    [0, 4, 8], [2, 4, 6]
+  ];
+
+  const landing = document.getElementById('landing');
+  const roomView = document.getElementById('roomView');
+  const createBtn = document.getElementById('createBtn');
+  const joinBtn = document.getElementById('joinBtn');
+  const joinCodeInput = document.getElementById('joinCodeInput');
+  const landingError = document.getElementById('landingError');
+  const roomCodeDisplay = document.getElementById('roomCodeDisplay');
+  const roleChip = document.getElementById('roleChip');
+  const statusEl = document.getElementById('status');
+  const boardEl = document.getElementById('board');
+  const playAgainBtn = document.getElementById('playAgainBtn');
+  const leaveBtn = document.getElementById('leaveBtn');
+  const copyLinkBtn = document.getElementById('copyLinkBtn');
+  const connDot = document.getElementById('connDot');
+  const connText = document.getElementById('connText');
+
+  let currentCode = null;
+  let myRole = null;
+  let roomUnsub = null;
+  let cells = [];
+
+  // --- connection indicator ---
+  onValue(ref(db, '.info/connected'), (snap) => {
+    const online = snap.val() === true;
+    connDot.classList.toggle('online', online);
+    connText.textContent = online ? 'online' : 'connecting…';
+  });
+
+  function randomCode() {
+    let s = '';
+    for (let i = 0; i < 6; i++) s += CODE_CHARS[Math.floor(Math.random() * CODE_CHARS.length)];
+    return s;
+  }
+
+  function buildBoard() {
+    boardEl.innerHTML = '';
+    cells = [];
+    for (let i = 0; i < 9; i++) {
+      const c = document.createElement('button');
+      c.type = 'button';
+      c.className = 'cell';
+      c.addEventListener('click', () => handleCellClick(i));
+      boardEl.appendChild(c);
+      cells.push(c);
+    }
+  }
+  buildBoard();
+
+  function showRoom() {
+    landing.classList.add('hidden');
+    roomView.classList.remove('hidden');
+  }
+
+  function showLanding() {
+    roomView.classList.add('hidden');
+    landing.classList.remove('hidden');
+    landingError.textContent = '';
+  }
+
+  async function createGame() {
+    createBtn.disabled = true;
+    landingError.textContent = '';
+    let code = randomCode();
+
+    // avoid extremely unlikely collision with an existing room
+    for (let attempt = 0; attempt < 5; attempt++) {
+      const snap = await get(ref(db, 'games/' + code));
+      if (!snap.exists()) break;
+      code = randomCode();
+    }
+
+    await update(ref(db, 'games/' + code), {
+      board: EMPTY_BOARD,
+      turn: 'X',
+      winner: '',
+      winLine: [],
+      seats: { X: true, O: false }
+    });
+
+    myRole = 'X';
+    enterRoom(code);
+    createBtn.disabled = false;
+  }
+
+  async function joinGame() {
+    const code = joinCodeInput.value.trim().toUpperCase();
+    if (code.length !== 6) {
+      landingError.textContent = 'Enter the 6-character room code.';
+      return;
+    }
+    joinBtn.disabled = true;
+    landingError.textContent = '';
+
+    const snap = await get(ref(db, 'games/' + code));
+    if (!snap.exists()) {
+      landingError.textContent = 'Room not found. Double-check the code.';
+      joinBtn.disabled = false;
+      return;
+    }
+
+    const result = await runTransaction(ref(db, 'games/' + code + '/seats/O'), (current) => {
+      if (current === true) return; // abort, already taken
+      return true;
+    });
+
+    if (!result.committed) {
+      landingError.textContent = 'This room already has two players.';
+      joinBtn.disabled = false;
+      return;
+    }
+
+    myRole = 'O';
+    enterRoom(code);
+    joinBtn.disabled = false;
+  }
+
+  function enterRoom(code) {
+    currentCode = code;
+    roomCodeDisplay.textContent = code;
+    roleChip.textContent = 'You are ' + myRole;
+    roleChip.className = 'role-chip ' + (myRole === 'X' ? 'role-x' : 'role-o');
+    showRoom();
+
+    const url = new URL(window.location.href);
+    url.searchParams.set('room', code);
+    window.history.replaceState({}, '', url);
+
+    if (roomUnsub) roomUnsub();
+    roomUnsub = onValue(ref(db, 'games/' + code), (snap) => {
+      const data = snap.val();
+      if (!data) return;
+      render(data);
+    });
+  }
+
+  function render(data) {
+    const board = data.board || EMPTY_BOARD;
+    const turn = data.turn || 'X';
+    const winner = data.winner || '';
+    const winLine = data.winLine || [];
+    const seats = data.seats || { X: false, O: false };
+    const bothJoined = seats.X && seats.O;
+
+    cells.forEach((cell, i) => {
+      const val = board[i];
+      cell.textContent = val || '';
+      cell.className = 'cell' + (val ? ' filled ' + val.toLowerCase() : '');
+      if (winLine.includes(i)) cell.classList.add('win-cell');
+      const canPlay = bothJoined && !winner && !val && turn === myRole;
+      if (!canPlay) cell.classList.add('locked');
+    });
+
+    if (!bothJoined) {
+      statusEl.textContent = 'Waiting for opponent to join…';
+      statusEl.className = 'status';
+    } else if (winner === 'draw') {
+      statusEl.textContent = "It's a draw!";
+      statusEl.className = 'status win';
+    } else if (winner) {
+      statusEl.innerHTML = (winner === myRole ? '🏆 You win!' : winner + ' wins!');
+      statusEl.className = 'status win';
+    } else {
+      const cls = turn === 'X' ? 'turn-x' : 'turn-o';
+      const who = turn === myRole ? 'Your turn' : "Opponent's turn";
+      statusEl.innerHTML = who + ' (<span class="' + cls + '">' + turn + '</span>)';
+      statusEl.className = 'status';
+    }
+
+    playAgainBtn.disabled = !(winner && bothJoined);
+  }
+
+  function checkWinner(board) {
+    for (const line of WIN_LINES) {
+      const [a, b, c] = line;
+      if (board[a] && board[a] === board[b] && board[a] === board[c]) {
+        return { winner: board[a], line };
+      }
+    }
+    if (board.every(v => v !== '')) return { winner: 'draw', line: [] };
+    return null;
+  }
+
+  async function handleCellClick(index) {
+    if (!currentCode || !myRole) return;
+    const snap = await get(ref(db, 'games/' + currentCode));
+    const data = snap.val();
+    if (!data) return;
+    const seats = data.seats || {};
+    if (!(seats.X && seats.O)) return;
+    if (data.winner) return;
+    if (data.turn !== myRole) return;
+    const board = data.board || EMPTY_BOARD.slice();
+    if (board[index]) return;
+
+    const newBoard = board.slice();
+    newBoard[index] = myRole;
+    const result = checkWinner(newBoard);
+
+    await update(ref(db, 'games/' + currentCode), {
+      board: newBoard,
+      turn: myRole === 'X' ? 'O' : 'X',
+      winner: result ? result.winner : '',
+      winLine: result ? result.line : []
+    });
+  }
+
+  async function playAgain() {
+    if (!currentCode) return;
+    await update(ref(db, 'games/' + currentCode), {
+      board: EMPTY_BOARD,
+      turn: 'X',
+      winner: '',
+      winLine: []
+    });
+  }
+
+  function leaveRoom() {
+    if (roomUnsub) { roomUnsub(); roomUnsub = null; }
+    currentCode = null;
+    myRole = null;
+    const url = new URL(window.location.href);
+    url.searchParams.delete('room');
+    window.history.replaceState({}, '', url);
+    showLanding();
+  }
+
+  copyLinkBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(window.location.href);
+      copyLinkBtn.textContent = 'Copied!';
+      setTimeout(() => copyLinkBtn.textContent = 'Copy link', 1500);
+    } catch (e) {
+      copyLinkBtn.textContent = currentCode;
+    }
+  });
+
+  createBtn.addEventListener('click', createGame);
+  joinBtn.addEventListener('click', joinGame);
+  joinCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinGame(); });
+  playAgainBtn.addEventListener('click', playAgain);
+  leaveBtn.addEventListener('click', leaveRoom);
+
+  // auto-fill room code from a shared link (?room=CODE)
+  const params = new URLSearchParams(window.location.search);
+  const sharedRoom = params.get('room');
+  if (sharedRoom) {
+    joinCodeInput.value = sharedRoom.toUpperCase();
+  }
+</script>
+</body>
+</html>
