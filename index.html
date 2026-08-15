@@ -269,8 +269,22 @@
       <div class="conn"><span class="conn-dot" id="connDot"></span><span id="connText">connecting…</span></div>
     </div>
 
+    <!-- NAME / EMAIL GATE -->
+    <div class="panel" id="gate">
+      <h2>Before you play</h2>
+      <p class="hint">Enter your name and email to continue. Your name is shown to the other player; your email is only used to identify players and is never shown in the game.</p>
+      <div class="row stack">
+        <input type="text" id="gateName" placeholder="YOUR NAME" style="text-transform:none;letter-spacing:0.3px;" maxlength="40" autocomplete="name" />
+        <input type="text" id="gateEmail" placeholder="YOUR EMAIL" style="text-transform:none;letter-spacing:0.3px;" maxlength="80" autocomplete="email" />
+      </div>
+      <div class="row">
+        <button class="primary" id="gateContinueBtn" style="width:100%">Continue</button>
+      </div>
+      <div class="error" id="gateError"></div>
+    </div>
+
     <!-- LANDING -->
-    <div class="panel" id="landing">
+    <div class="panel hidden" id="landing">
       <h2>Start a game</h2>
       <p class="hint">Create a room and send the code (or link) to whoever you're playing with. They join with it and moves sync instantly.</p>
       <button class="primary" id="createBtn" style="width:100%">Create New Game</button>
@@ -282,6 +296,7 @@
         <button class="secondary" id="joinBtn" style="width:100%">Join Game</button>
       </div>
       <div class="error" id="landingError"></div>
+      <p class="footer-hint" id="playingAsHint" style="margin-top:14px;"></p>
     </div>
 
     <!-- ROOM -->
@@ -312,8 +327,11 @@
 <script type="module">
   import { initializeApp } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-app.js";
   import {
-    getDatabase, ref, onValue, get, update, runTransaction, onDisconnect
+    getDatabase, ref, onValue, get, update, runTransaction, onDisconnect, push, set
   } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
+
+  // Apps Script web app URL that appends each new lead (name/email) to a private Google Sheet.
+  const SHEETS_WEBHOOK_URL = "PASTE_APPS_SCRIPT_WEB_APP_URL_HERE";
 
   const firebaseConfig = {
     apiKey: "AIzaSyAUg5ipqddXngh5m2_UIKR50DyPSJfXOFk",
@@ -337,6 +355,12 @@
     [0, 4, 8], [2, 4, 6]
   ];
 
+  const gate = document.getElementById('gate');
+  const gateName = document.getElementById('gateName');
+  const gateEmail = document.getElementById('gateEmail');
+  const gateContinueBtn = document.getElementById('gateContinueBtn');
+  const gateError = document.getElementById('gateError');
+  const playingAsHint = document.getElementById('playingAsHint');
   const landing = document.getElementById('landing');
   const roomView = document.getElementById('roomView');
   const createBtn = document.getElementById('createBtn');
@@ -357,6 +381,60 @@
   let myRole = null;
   let roomUnsub = null;
   let cells = [];
+  let playerName = '';
+  let playerEmail = '';
+
+  // --- name / email gate ---
+  function loadStoredPlayer() {
+    const n = localStorage.getItem('tttPlayerName');
+    const e = localStorage.getItem('tttPlayerEmail');
+    if (n && e) { playerName = n; playerEmail = e; return true; }
+    return false;
+  }
+
+  async function submitLead(name, email) {
+    // 1) Firebase — write-only "leads" node (security rules make this write-only, not publicly readable)
+    try {
+      await set(push(ref(db, 'leads')), { name, email, ts: Date.now() });
+    } catch (e) { /* never block gameplay on logging failures */ }
+
+    // 2) Google Sheet via Apps Script web app — private, human-friendly view of the same leads
+    if (SHEETS_WEBHOOK_URL && !SHEETS_WEBHOOK_URL.startsWith('PASTE_')) {
+      try {
+        await fetch(SHEETS_WEBHOOK_URL, {
+          method: 'POST',
+          mode: 'no-cors',
+          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+          body: JSON.stringify({ name, email, ts: new Date().toISOString() })
+        });
+      } catch (e) { /* ignore network errors so gameplay isn't blocked */ }
+    }
+  }
+
+  function showGate() {
+    roomView.classList.add('hidden');
+    landing.classList.add('hidden');
+    gate.classList.remove('hidden');
+  }
+
+  gateContinueBtn.addEventListener('click', async () => {
+    const name = gateName.value.trim();
+    const email = gateEmail.value.trim();
+    gateError.textContent = '';
+    if (!name) { gateError.textContent = 'Please enter your name.'; return; }
+    if (name.length > 40) { gateError.textContent = 'Name is too long.'; return; }
+    const emailOk = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    if (!emailOk) { gateError.textContent = 'Please enter a valid email address.'; return; }
+
+    gateContinueBtn.disabled = true;
+    playerName = name;
+    playerEmail = email;
+    localStorage.setItem('tttPlayerName', name);
+    localStorage.setItem('tttPlayerEmail', email);
+    await submitLead(name, email);
+    gateContinueBtn.disabled = false;
+    showLanding();
+  });
 
   // --- connection indicator ---
   onValue(ref(db, '.info/connected'), (snap) => {
@@ -386,14 +464,32 @@
   buildBoard();
 
   function showRoom() {
+    gate.classList.add('hidden');
     landing.classList.add('hidden');
     roomView.classList.remove('hidden');
   }
 
   function showLanding() {
+    gate.classList.add('hidden');
     roomView.classList.add('hidden');
     landing.classList.remove('hidden');
     landingError.textContent = '';
+    playingAsHint.textContent = 'Playing as ' + playerName + ' — not you? ';
+    playingAsHint.appendChild(makeEditNameLink());
+  }
+
+  function makeEditNameLink() {
+    const a = document.createElement('a');
+    a.href = '#';
+    a.textContent = 'Edit name';
+    a.style.color = 'var(--x-color)';
+    a.addEventListener('click', (e) => {
+      e.preventDefault();
+      gateName.value = playerName;
+      gateEmail.value = playerEmail;
+      showGate();
+    });
+    return a;
   }
 
   async function createGame() {
@@ -413,7 +509,8 @@
       turn: 'X',
       winner: '',
       winLine: [],
-      seats: { X: true, O: false }
+      seats: { X: true, O: false },
+      names: { X: playerName, O: '' }
     });
 
     myRole = 'X';
@@ -448,6 +545,8 @@
       return;
     }
 
+    await update(ref(db, 'games/' + code + '/names'), { O: playerName });
+
     myRole = 'O';
     enterRoom(code);
     joinBtn.disabled = false;
@@ -456,7 +555,7 @@
   function enterRoom(code) {
     currentCode = code;
     roomCodeDisplay.textContent = code;
-    roleChip.textContent = 'You are ' + myRole;
+    roleChip.textContent = 'You are ' + playerName + ' (' + myRole + ')';
     roleChip.className = 'role-chip ' + (myRole === 'X' ? 'role-x' : 'role-o');
     showRoom();
 
@@ -478,7 +577,10 @@
     const winner = data.winner || '';
     const winLine = data.winLine || [];
     const seats = data.seats || { X: false, O: false };
+    const names = data.names || { X: '', O: '' };
     const bothJoined = seats.X && seats.O;
+    const oppRole = myRole === 'X' ? 'O' : 'X';
+    const oppName = names[oppRole] || 'your opponent';
 
     cells.forEach((cell, i) => {
       const val = board[i];
@@ -496,11 +598,11 @@
       statusEl.textContent = "It's a draw!";
       statusEl.className = 'status win';
     } else if (winner) {
-      statusEl.innerHTML = (winner === myRole ? '🏆 You win!' : winner + ' wins!');
+      statusEl.innerHTML = (winner === myRole ? '🏆 You win!' : oppName + ' wins!');
       statusEl.className = 'status win';
     } else {
       const cls = turn === 'X' ? 'turn-x' : 'turn-o';
-      const who = turn === myRole ? 'Your turn' : "Opponent's turn";
+      const who = turn === myRole ? 'Your turn' : (oppName + "'s turn");
       statusEl.innerHTML = who + ' (<span class="' + cls + '">' + turn + '</span>)';
       statusEl.className = 'status';
     }
@@ -576,6 +678,7 @@
   createBtn.addEventListener('click', createGame);
   joinBtn.addEventListener('click', joinGame);
   joinCodeInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') joinGame(); });
+  gateEmail.addEventListener('keydown', (e) => { if (e.key === 'Enter') gateContinueBtn.click(); });
   playAgainBtn.addEventListener('click', playAgain);
   leaveBtn.addEventListener('click', leaveRoom);
 
@@ -584,6 +687,13 @@
   const sharedRoom = params.get('room');
   if (sharedRoom) {
     joinCodeInput.value = sharedRoom.toUpperCase();
+  }
+
+  // mandatory name/email gate: skip only if we already have both stored for this browser
+  if (loadStoredPlayer()) {
+    showLanding();
+  } else {
+    showGate();
   }
 </script>
 </body>
