@@ -131,6 +131,17 @@
     color: var(--text);
   }
 
+  .gate-title {
+    margin: 0 0 22px;
+    font-size: 28px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+    text-align: center;
+    color: var(--text);
+  }
+
+  #gate .privacy-note { text-align: center; }
+
   .panel p.hint {
     margin: 0 0 16px;
     color: var(--muted);
@@ -400,6 +411,7 @@
     .panel { padding: 24px 20px; border-radius: 22px; }
     .panel h2 { font-size: 18px; margin-bottom: 10px; }
     .panel p.hint { font-size: 14px; }
+    .gate-title { font-size: 23px; margin-bottom: 18px; }
 
     input[type="text"], input[type="email"] { font-size: 17px; padding: 14px 16px; }
     button { font-size: 16px; padding: 15px 22px; }
@@ -445,8 +457,7 @@
 
     <!-- NAME / EMAIL GATE -->
     <div class="panel view-fade" id="gate">
-      <h2>Welcome to Tic-Tac-Toe Live! 👋</h2>
-      <p class="hint">Enter your details to get started.</p>
+      <h2 class="gate-title">Welcome to Tic-Tac-Toe Live! 👋</h2>
       <div class="row stack">
         <div class="field">
           <label for="gateName">Your name</label>
@@ -457,7 +468,7 @@
           <input type="email" inputmode="email" id="gateEmail" placeholder="you@example.com" style="text-transform:none;letter-spacing:0.3px;" maxlength="80" autocomplete="email" />
         </div>
       </div>
-      <p class="privacy-note">Your name is shown to the other player. Your email is only used to identify you and is never shown in the game.</p>
+      <p class="privacy-note">Your name is shown to your opponent — your email stays private.</p>
       <div class="row">
         <button class="primary" id="gateContinueBtn" style="width:100%">Let's Begin</button>
       </div>
@@ -641,7 +652,40 @@
     } catch (e) { /* ignore audio failures */ }
   }
 
-  function playMoveSound() { beep(520, 0.09, 'square'); }
+  function playMoveSound() {
+    // a soft, warm "pop" — a sine wave with a quick downward pitch glide, plus a quiet
+    // octave-up overtone for a touch of sparkle. Much gentler than a buzzy square wave.
+    if (muted) return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    try {
+      const now = ctx.currentTime;
+
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(720, now);
+      osc.frequency.exponentialRampToValueAtTime(480, now + 0.1);
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.22, now + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.15);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + 0.17);
+
+      const overtone = ctx.createOscillator();
+      const overtoneGain = ctx.createGain();
+      overtone.type = 'sine';
+      overtone.frequency.setValueAtTime(1440, now);
+      overtone.frequency.exponentialRampToValueAtTime(960, now + 0.08);
+      overtoneGain.gain.setValueAtTime(0.0001, now);
+      overtoneGain.gain.exponentialRampToValueAtTime(0.07, now + 0.008);
+      overtoneGain.gain.exponentialRampToValueAtTime(0.0001, now + 0.09);
+      overtone.connect(overtoneGain).connect(ctx.destination);
+      overtone.start(now);
+      overtone.stop(now + 0.1);
+    } catch (e) { /* ignore audio failures */ }
+  }
   function playWinSound() {
     beep(523.25, 0.12, 'triangle');
     setTimeout(() => beep(659.25, 0.12, 'triangle'), 110);
