@@ -257,6 +257,12 @@
     color: var(--muted);
   }
   .stats-banner b { font-size: 14px; }
+  .stats-banner .stat-x, .stats-banner .stat-o { display: inline-flex; align-items: center; gap: 4px; max-width: 34%; }
+  .stats-banner .stat-name {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
   .stats-banner .stat-x b { color: var(--x-color); }
   .stats-banner .stat-o b { color: var(--o-color); }
   .stats-banner .stat-draw b { color: var(--text); }
@@ -475,9 +481,9 @@
       </div>
 
       <div class="stats-banner" id="statsBanner">
-        <span class="stat-x">X <b id="statXWins">0</b></span>
+        <span class="stat-x"><span class="stat-name" id="statXName">X</span> <b id="statXWins">0</b></span>
         <span class="stat-draw">Draws <b id="statDraws">0</b></span>
-        <span class="stat-o">O <b id="statOWins">0</b></span>
+        <span class="stat-o"><span class="stat-name" id="statOName">O</span> <b id="statOWins">0</b></span>
         <span class="stat-round" id="statRound">Round 1</span>
       </div>
 
@@ -502,9 +508,9 @@
       <h2>How to play</h2>
       <ol>
         <li>Create a new game to get a 6-character room code, or join with a code someone shared with you.</li>
-        <li>Once both players have joined, X always moves first — tap any empty square on your turn.</li>
+        <li>Once both players have joined, X moves first in the opening round — tap any empty square on your turn.</li>
         <li>Get three of your marks in a row — across, down, or diagonal — to win the round.</li>
-        <li>Hit <b>Play Again</b> to start the next round in the same room — the score at the top keeps counting for as long as you're both here.</li>
+        <li>Hit <b>Play Again</b> to start the next round in the same room — the starting player alternates each round so you both get an equal share of first moves, and the score at the top keeps counting for as long as you're both here.</li>
         <li>Use <b>Copy link</b> to send your opponent a link that fills in the room code for them automatically.</li>
       </ol>
       <button class="primary" id="helpCloseBtn" style="width:100%">Got it</button>
@@ -568,6 +574,8 @@
   const helpOverlay = document.getElementById('helpOverlay');
   const helpCloseBtn = document.getElementById('helpCloseBtn');
   const muteBtn = document.getElementById('muteBtn');
+  const statXName = document.getElementById('statXName');
+  const statOName = document.getElementById('statOName');
   const statXWins = document.getElementById('statXWins');
   const statOWins = document.getElementById('statOWins');
   const statDraws = document.getElementById('statDraws');
@@ -930,7 +938,13 @@
     });
   }
 
-  function updateStatsBanner(scores) {
+  function updateStatsBanner(scores, names) {
+    const xName = (names && names.X) ? names.X : 'X';
+    const oName = (names && names.O) ? names.O : 'O';
+    statXName.textContent = xName;
+    statXName.title = xName;
+    statOName.textContent = oName;
+    statOName.title = oName;
     statXWins.textContent = scores.X;
     statOWins.textContent = scores.O;
     statDraws.textContent = scores.draws;
@@ -980,7 +994,7 @@
       lastWinnerSeen = winner;
     }
 
-    updateStatsBanner(scores);
+    updateStatsBanner(scores, names);
     maybeReportStats(scores);
 
     if (!bothJoined) {
@@ -1048,9 +1062,18 @@
 
   async function playAgain() {
     if (!currentCode) return;
+    // Alternate who starts each round so both players get an equal share of first moves,
+    // regardless of who won the previous round. Based purely on how many rounds have been
+    // played so far (X starts round 1, O starts round 2, X starts round 3, and so on).
+    const snap = await get(ref(db, 'games/' + currentCode));
+    const data = snap.val() || {};
+    const scores = Object.assign({}, EMPTY_SCORES, data.scores || {});
+    const roundsPlayed = scores.X + scores.O + scores.draws;
+    const nextStarter = (roundsPlayed % 2 === 0) ? 'X' : 'O';
+
     await update(ref(db, 'games/' + currentCode), {
       board: EMPTY_BOARD,
-      turn: 'X',
+      turn: nextStarter,
       winner: '',
       winLine: []
     });
