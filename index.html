@@ -65,6 +65,30 @@
     box-shadow: 0 0 10px var(--x-color);
   }
 
+  .header-right {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .icon-btn {
+    background: var(--cell-bg);
+    border: 1px solid var(--panel-border);
+    color: var(--muted);
+    border-radius: 8px;
+    width: 28px;
+    height: 28px;
+    font-size: 14px;
+    font-weight: 700;
+    padding: 0;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    line-height: 1;
+  }
+
+  .icon-btn:hover { color: var(--text); }
+
   .conn {
     font-size: 11px;
     color: var(--muted);
@@ -203,6 +227,25 @@
   .role-chip.role-x { background: rgba(79,209,255,0.12); color: var(--x-color); border: 1px solid rgba(79,209,255,0.4); }
   .role-chip.role-o { background: rgba(255,138,92,0.12); color: var(--o-color); border: 1px solid rgba(255,138,92,0.4); }
 
+  /* --- live stats banner --- */
+  .stats-banner {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--cell-bg);
+    border: 1px solid var(--panel-border);
+    border-radius: 12px;
+    padding: 10px 14px;
+    font-size: 12.5px;
+    color: var(--muted);
+  }
+  .stats-banner b { font-size: 14px; }
+  .stats-banner .stat-x b { color: var(--x-color); }
+  .stats-banner .stat-o b { color: var(--o-color); }
+  .stats-banner .stat-draw b { color: var(--text); }
+  .stats-banner .stat-round { color: var(--muted); font-weight: 600; }
+
   .status {
     min-height: 22px;
     font-size: 15px;
@@ -266,6 +309,53 @@
 
   .hidden { display: none !important; }
 
+  /* --- how-to-play modal --- */
+  .modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(5,7,12,0.72);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 60;
+    padding: 20px;
+  }
+  .modal {
+    background: linear-gradient(180deg, #171b24, #12151d);
+    border: 1px solid var(--panel-border);
+    border-radius: 18px;
+    padding: 26px;
+    max-width: 380px;
+    width: 100%;
+    box-shadow: 0 24px 60px rgba(0,0,0,0.5);
+  }
+  .modal h2 { margin: 0 0 14px; color: var(--text); font-size: 17px; }
+  .modal ol { margin: 0 0 20px; padding-left: 20px; color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+  .modal ol li { margin-bottom: 8px; }
+  .modal ol li::marker { color: var(--x-color); font-weight: 700; }
+
+  /* --- win celebration confetti --- */
+  .confetti-layer {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    overflow: hidden;
+    z-index: 50;
+  }
+  .confetti-piece {
+    position: absolute;
+    top: -12px;
+    width: 8px;
+    height: 14px;
+    border-radius: 2px;
+    opacity: 0.9;
+    animation: confetti-fall 1.6s ease-in forwards;
+  }
+  @keyframes confetti-fall {
+    0% { transform: translateY(0) rotate(0deg); opacity: 1; }
+    100% { transform: translateY(110vh) rotate(360deg); opacity: 0; }
+  }
+
   /* --- phone screens: fill the width, bigger touch targets, feels like a real app --- */
   @media (max-width: 480px) {
     body { padding: 16px; align-items: flex-start; }
@@ -273,6 +363,7 @@
 
     .title { font-size: 19px; }
     .conn { font-size: 12px; }
+    .icon-btn { width: 34px; height: 34px; font-size: 15px; }
 
     .panel { padding: 24px 20px; border-radius: 22px; }
     .panel h2 { font-size: 18px; margin-bottom: 10px; }
@@ -285,6 +376,9 @@
     .room-code-box .code { font-size: 21px; letter-spacing: 3.5px; }
     .role-chip { font-size: 13px; padding: 8px 14px; }
 
+    .stats-banner { font-size: 13.5px; padding: 12px 16px; }
+    .stats-banner b { font-size: 15px; }
+
     .status { font-size: 17px; min-height: 26px; }
 
     .board-wrap { padding: 16px; border-radius: 22px; }
@@ -292,6 +386,10 @@
     .cell { font-size: 52px; border-radius: 16px; }
 
     .footer-hint { font-size: 13px; }
+
+    .modal { padding: 22px; border-radius: 20px; }
+    .modal h2 { font-size: 18px; }
+    .modal ol { font-size: 14px; }
   }
 
   @media (max-width: 360px) {
@@ -303,8 +401,14 @@
 <body>
   <div class="app">
     <div class="room-header">
-      <div class="title"><span class="title-dot"></span>Tic-Tac-Toe Live</div>
-      <div class="conn"><span class="conn-dot" id="connDot"></span><span id="connText">connecting…</span></div>
+      <div class="title">
+        <span class="title-dot"></span>Tic-Tac-Toe Live
+        <button class="icon-btn" id="helpBtn" title="How to play" aria-label="How to play">?</button>
+      </div>
+      <div class="header-right">
+        <button class="icon-btn" id="muteBtn" title="Mute sounds" aria-label="Toggle sound">🔊</button>
+        <div class="conn"><span class="conn-dot" id="connDot"></span><span id="connText">connecting…</span></div>
+      </div>
     </div>
 
     <!-- NAME / EMAIL GATE -->
@@ -324,7 +428,7 @@
     <!-- LANDING -->
     <div class="panel hidden" id="landing">
       <h2>Start a game</h2>
-      <p class="hint">Create a room and send the code (or link) to whoever you're playing with. They join with it and moves sync instantly.</p>
+      <p class="hint">Create a room and send the code (or link) to whoever you're playing with. They join with it and moves sync instantly. Tap the <b>?</b> above any time for a quick how-to-play.</p>
       <button class="primary" id="createBtn" style="width:100%">Create New Game</button>
 
       <div class="divider">OR JOIN ONE</div>
@@ -347,6 +451,13 @@
         <div class="role-chip" id="roleChip">You are —</div>
       </div>
 
+      <div class="stats-banner" id="statsBanner">
+        <span class="stat-x">X <b id="statXWins">0</b></span>
+        <span class="stat-draw">Draws <b id="statDraws">0</b></span>
+        <span class="stat-o">O <b id="statOWins">0</b></span>
+        <span class="stat-round" id="statRound">Round 1</span>
+      </div>
+
       <div class="status" id="status">Waiting for opponent…</div>
 
       <div class="board-wrap">
@@ -358,7 +469,22 @@
         <button class="ghost" id="leaveBtn">Leave</button>
       </div>
 
-      <p class="footer-hint">Share the room code above — anyone with it and this page's link can join and play live.</p>
+      <p class="footer-hint">Share the room code above — anyone with it and this page's link can join and play live. The score above keeps counting round after round.</p>
+    </div>
+  </div>
+
+  <!-- HOW TO PLAY MODAL -->
+  <div class="modal-overlay hidden" id="helpOverlay">
+    <div class="modal">
+      <h2>How to play</h2>
+      <ol>
+        <li>Create a new game to get a 6-character room code, or join with a code someone shared with you.</li>
+        <li>Once both players have joined, X always moves first — tap any empty square on your turn.</li>
+        <li>Get three of your marks in a row — across, down, or diagonal — to win the round.</li>
+        <li>Hit <b>Play Again</b> to start the next round in the same room — the score at the top keeps counting for as long as you're both here.</li>
+        <li>Use <b>Copy link</b> to send your opponent a link that fills in the room code for them automatically.</li>
+      </ol>
+      <button class="primary" id="helpCloseBtn" style="width:100%">Got it</button>
     </div>
   </div>
 
@@ -368,7 +494,7 @@
     getDatabase, ref, onValue, get, update, runTransaction, onDisconnect, push, set
   } from "https://www.gstatic.com/firebasejs/12.17.1/firebase-database.js";
 
-  // Apps Script web app URL that appends each new lead (name/email) to a private Google Sheet.
+  // Apps Script web app URL that appends/updates each lead (name/email/stats) in a private Google Sheet.
   const SHEETS_WEBHOOK_URL = "https://script.google.com/macros/s/AKfycbyj1ffwPw9ZDzjEg4oSvhrce-XHhxP0krhZ-tQHBmyIPOj8H5Tx4RH2vAN-DT8q-8N0/exec";
 
   const firebaseConfig = {
@@ -386,6 +512,7 @@
 
   const EMPTY_BOARD = ["", "", "", "", "", "", "", "", ""];
   const CODE_CHARS = "ABCDEFGHJKMNPQRSTUVWXYZ23456789"; // no 0/O/1/I/L ambiguity
+  const EMPTY_SCORES = { X: 0, O: 0, draws: 0 };
 
   const WIN_LINES = [
     [0, 1, 2], [3, 4, 5], [6, 7, 8],
@@ -414,6 +541,14 @@
   const copyLinkBtn = document.getElementById('copyLinkBtn');
   const connDot = document.getElementById('connDot');
   const connText = document.getElementById('connText');
+  const helpBtn = document.getElementById('helpBtn');
+  const helpOverlay = document.getElementById('helpOverlay');
+  const helpCloseBtn = document.getElementById('helpCloseBtn');
+  const muteBtn = document.getElementById('muteBtn');
+  const statXWins = document.getElementById('statXWins');
+  const statOWins = document.getElementById('statOWins');
+  const statDraws = document.getElementById('statDraws');
+  const statRound = document.getElementById('statRound');
 
   let currentCode = null;
   let myRole = null;
@@ -421,6 +556,137 @@
   let cells = [];
   let playerName = '';
   let playerEmail = '';
+  let leadKey = null; // Firebase push key for this browser's lead record, reused to upsert stats
+
+  // per-room render bookkeeping (reset in enterRoom)
+  let isFirstRenderInRoom = true;
+  let lastBoardSig = null;
+  let lastWinnerSeen = '';
+  let lastScoresSig = null;
+
+  // --- sound effects (synthesized, no external assets) ---
+  let audioCtx = null;
+  let muted = localStorage.getItem('tttMuted') === '1';
+  function updateMuteIcon() { muteBtn.textContent = muted ? '🔇' : '🔊'; }
+  updateMuteIcon();
+  muteBtn.addEventListener('click', () => {
+    muted = !muted;
+    localStorage.setItem('tttMuted', muted ? '1' : '0');
+    updateMuteIcon();
+  });
+
+  function ensureAudioCtx() {
+    if (!audioCtx) {
+      try { audioCtx = new (window.AudioContext || window.webkitAudioContext)(); } catch (e) { /* unsupported */ }
+    }
+    return audioCtx;
+  }
+
+  function beep(freq, duration, type) {
+    if (muted) return;
+    const ctx = ensureAudioCtx();
+    if (!ctx) return;
+    try {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+      osc.type = type || 'sine';
+      osc.frequency.value = freq;
+      gain.gain.setValueAtTime(0.0001, ctx.currentTime);
+      gain.gain.exponentialRampToValueAtTime(0.15, ctx.currentTime + 0.01);
+      gain.gain.exponentialRampToValueAtTime(0.0001, ctx.currentTime + duration);
+      osc.connect(gain).connect(ctx.destination);
+      osc.start();
+      osc.stop(ctx.currentTime + duration + 0.02);
+    } catch (e) { /* ignore audio failures */ }
+  }
+
+  function playMoveSound() { beep(520, 0.09, 'square'); }
+  function playWinSound() {
+    beep(523.25, 0.12, 'triangle');
+    setTimeout(() => beep(659.25, 0.12, 'triangle'), 110);
+    setTimeout(() => beep(783.99, 0.18, 'triangle'), 220);
+  }
+  function playDrawSound() { beep(300, 0.25, 'sine'); }
+
+  // --- win celebration ---
+  function celebrateWin() {
+    const layer = document.createElement('div');
+    layer.className = 'confetti-layer';
+    document.body.appendChild(layer);
+    const colors = ['#4fd1ff', '#ff8a5c', '#39ff88', '#ffd166', '#c77dff'];
+    for (let i = 0; i < 40; i++) {
+      const piece = document.createElement('span');
+      piece.className = 'confetti-piece';
+      piece.style.left = Math.random() * 100 + '%';
+      piece.style.background = colors[i % colors.length];
+      piece.style.animationDelay = (Math.random() * 0.3) + 's';
+      piece.style.transform = 'rotate(' + Math.floor(Math.random() * 360) + 'deg)';
+      layer.appendChild(piece);
+    }
+    setTimeout(() => layer.remove(), 1900);
+  }
+
+  // --- how-to-play modal ---
+  helpBtn.addEventListener('click', () => helpOverlay.classList.remove('hidden'));
+  helpCloseBtn.addEventListener('click', () => helpOverlay.classList.add('hidden'));
+  helpOverlay.addEventListener('click', (e) => { if (e.target === helpOverlay) helpOverlay.classList.add('hidden'); });
+
+  // --- device / browser / approximate-location capture (no permission prompt) ---
+  function detectBrowser(ua) {
+    if (/Edg\//.test(ua)) return 'Edge';
+    if (/OPR\//.test(ua)) return 'Opera';
+    if (/CriOS\//.test(ua)) return 'Chrome (iOS)';
+    if (/FxiOS\//.test(ua)) return 'Firefox (iOS)';
+    if (/Chrome\//.test(ua)) return 'Chrome';
+    if (/Firefox\//.test(ua)) return 'Firefox';
+    if (/Safari\//.test(ua) && /Version\//.test(ua)) return 'Safari';
+    return 'Unknown';
+  }
+
+  function detectOS(ua) {
+    if (/Windows/.test(ua)) return 'Windows';
+    if (/iPhone|iPad|iPod/.test(ua)) return 'iOS';
+    if (/Mac OS X/.test(ua)) return 'macOS';
+    if (/Android/.test(ua)) return 'Android';
+    if (/Linux/.test(ua)) return 'Linux';
+    return 'Unknown';
+  }
+
+  function collectDeviceInfo() {
+    const ua = navigator.userAgent || '';
+    let timezone = '';
+    try { timezone = Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { /* ignore */ }
+    return {
+      deviceType: /Mobi|Android|iPhone|iPad|iPod/i.test(ua) ? 'Mobile' : 'Desktop',
+      browser: detectBrowser(ua),
+      os: detectOS(ua),
+      screen: (screen.width || 0) + 'x' + (screen.height || 0),
+      language: navigator.language || '',
+      timezone
+    };
+  }
+
+  async function fetchApproxGeo() {
+    const res = await fetch('https://ipapi.co/json/');
+    if (!res.ok) throw new Error('geo lookup failed');
+    const d = await res.json();
+    return {
+      ip: d.ip || '',
+      city: d.city || '',
+      region: d.region || '',
+      country: d.country_name || ''
+    };
+  }
+
+  function sendToSheet(payload) {
+    if (!SHEETS_WEBHOOK_URL || SHEETS_WEBHOOK_URL.startsWith('PASTE_')) return;
+    fetch(SHEETS_WEBHOOK_URL, {
+      method: 'POST',
+      mode: 'no-cors',
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+      body: JSON.stringify(payload)
+    }).catch(() => { /* ignore network errors so gameplay isn't blocked */ });
+  }
 
   // --- name / email gate ---
   function loadStoredPlayer() {
@@ -431,22 +697,41 @@
   }
 
   async function submitLead(name, email) {
+    const device = collectDeviceInfo();
+    let geo = {};
+    try { geo = await fetchApproxGeo(); } catch (e) { /* best-effort only, never block gameplay */ }
+
+    const leadRef = push(ref(db, 'leads'));
+    leadKey = leadRef.key;
+    const record = Object.assign(
+      { name, email, ts: Date.now(), roomCode: '', roundsPlayed: 0, wins: 0, draws: 0 },
+      device, geo
+    );
+
     // 1) Firebase — write-only "leads" node (security rules make this write-only, not publicly readable)
-    try {
-      await set(push(ref(db, 'leads')), { name, email, ts: Date.now() });
-    } catch (e) { /* never block gameplay on logging failures */ }
+    try { await set(leadRef, record); } catch (e) { /* never block gameplay on logging failures */ }
 
     // 2) Google Sheet via Apps Script web app — private, human-friendly view of the same leads
-    if (SHEETS_WEBHOOK_URL && !SHEETS_WEBHOOK_URL.startsWith('PASTE_')) {
-      try {
-        await fetch(SHEETS_WEBHOOK_URL, {
-          method: 'POST',
-          mode: 'no-cors',
-          headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-          body: JSON.stringify({ name, email, ts: new Date().toISOString() })
-        });
-      } catch (e) { /* ignore network errors so gameplay isn't blocked */ }
-    }
+    sendToSheet(Object.assign(
+      { action: 'create', leadId: leadKey, name, email, ts: new Date().toISOString() },
+      device, geo
+    ));
+  }
+
+  function reportRoomCode(code) {
+    if (leadKey) update(ref(db, 'leads/' + leadKey), { roomCode: code }).catch(() => {});
+    sendToSheet({ action: 'room', leadId: leadKey, roomCode: code });
+  }
+
+  function maybeReportStats(scores) {
+    const sig = JSON.stringify(scores);
+    if (sig === lastScoresSig) return;
+    lastScoresSig = sig;
+    const rounds = scores.X + scores.O + scores.draws;
+    const myWins = scores[myRole] || 0;
+    const draws = scores.draws;
+    if (leadKey) update(ref(db, 'leads/' + leadKey), { roundsPlayed: rounds, wins: myWins, draws }).catch(() => {});
+    sendToSheet({ action: 'stats', leadId: leadKey, roomCode: currentCode, roundsPlayed: rounds, wins: myWins, draws });
   }
 
   function showGate() {
@@ -548,10 +833,12 @@
       winner: '',
       winLine: [],
       seats: { X: true, O: false },
-      names: { X: playerName, O: '' }
+      names: { X: playerName, O: '' },
+      scores: { X: 0, O: 0, draws: 0 }
     });
 
     myRole = 'X';
+    reportRoomCode(code);
     enterRoom(code);
     createBtn.disabled = false;
   }
@@ -586,6 +873,7 @@
     await update(ref(db, 'games/' + code + '/names'), { O: playerName });
 
     myRole = 'O';
+    reportRoomCode(code);
     enterRoom(code);
     joinBtn.disabled = false;
   }
@@ -596,6 +884,12 @@
     roleChip.textContent = 'You are ' + playerName + ' (' + myRole + ')';
     roleChip.className = 'role-chip ' + (myRole === 'X' ? 'role-x' : 'role-o');
     showRoom();
+
+    // reset per-room render bookkeeping so we don't fire sounds/celebrations/stat pushes for stale state
+    isFirstRenderInRoom = true;
+    lastBoardSig = null;
+    lastWinnerSeen = '';
+    lastScoresSig = null;
 
     const url = new URL(window.location.href);
     url.searchParams.set('room', code);
@@ -609,6 +903,14 @@
     });
   }
 
+  function updateStatsBanner(scores) {
+    statXWins.textContent = scores.X;
+    statOWins.textContent = scores.O;
+    statDraws.textContent = scores.draws;
+    const rounds = scores.X + scores.O + scores.draws;
+    statRound.textContent = 'Round ' + (rounds + 1);
+  }
+
   function render(data) {
     const board = data.board || EMPTY_BOARD;
     const turn = data.turn || 'X';
@@ -616,6 +918,7 @@
     const winLine = data.winLine || [];
     const seats = data.seats || { X: false, O: false };
     const names = data.names || { X: '', O: '' };
+    const scores = Object.assign({}, EMPTY_SCORES, data.scores || {});
     const bothJoined = seats.X && seats.O;
     const oppRole = myRole === 'X' ? 'O' : 'X';
     const oppName = names[oppRole] || 'your opponent';
@@ -628,6 +931,30 @@
       const canPlay = bothJoined && !winner && !val && turn === myRole;
       if (!canPlay) cell.classList.add('locked');
     });
+
+    // sound + celebration: only react to actual changes, not the first snapshot after joining
+    const boardSig = board.join('');
+    if (isFirstRenderInRoom) {
+      lastBoardSig = boardSig;
+      lastWinnerSeen = winner;
+      lastScoresSig = JSON.stringify(scores);
+      isFirstRenderInRoom = false;
+    } else {
+      if (boardSig !== lastBoardSig) {
+        const prevFilled = lastBoardSig.split('').filter(Boolean).length;
+        const curFilled = board.filter(Boolean).length;
+        if (curFilled > prevFilled) playMoveSound();
+        lastBoardSig = boardSig;
+      }
+      if (winner && winner !== lastWinnerSeen) {
+        if (winner === 'draw') playDrawSound();
+        else { playWinSound(); celebrateWin(); }
+      }
+      lastWinnerSeen = winner;
+    }
+
+    updateStatsBanner(scores);
+    maybeReportStats(scores);
 
     if (!bothJoined) {
       statusEl.textContent = 'Waiting for opponent to join…';
@@ -675,12 +1002,21 @@
     newBoard[index] = myRole;
     const result = checkWinner(newBoard);
 
-    await update(ref(db, 'games/' + currentCode), {
+    const updates = {
       board: newBoard,
       turn: myRole === 'X' ? 'O' : 'X',
       winner: result ? result.winner : '',
       winLine: result ? result.line : []
-    });
+    };
+
+    if (result) {
+      const scores = Object.assign({}, EMPTY_SCORES, data.scores || {});
+      if (result.winner === 'draw') scores.draws += 1;
+      else scores[result.winner] = (scores[result.winner] || 0) + 1;
+      updates.scores = scores;
+    }
+
+    await update(ref(db, 'games/' + currentCode), updates);
   }
 
   async function playAgain() {
