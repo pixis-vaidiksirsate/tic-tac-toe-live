@@ -115,6 +115,16 @@
     box-shadow: 0 24px 60px rgba(0,0,0,0.45), inset 0 0 0 1px rgba(255,255,255,0.02);
   }
 
+  /* --- calm entrance animation for the gate / landing / room views --- */
+  @keyframes viewFadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+  .view-fade { animation: viewFadeIn 0.45s cubic-bezier(0.16, 1, 0.3, 1); }
+  @media (prefers-reduced-motion: reduce) {
+    .view-fade { animation: none; }
+  }
+
   .panel h2 {
     margin: 0 0 14px;
     font-size: 15px;
@@ -434,7 +444,7 @@
     </div>
 
     <!-- NAME / EMAIL GATE -->
-    <div class="panel" id="gate">
+    <div class="panel view-fade" id="gate">
       <h2>Welcome to Tic-Tac-Toe Live! 👋</h2>
       <p class="hint">Enter your details to get started.</p>
       <div class="row stack">
@@ -455,7 +465,7 @@
     </div>
 
     <!-- LANDING -->
-    <div class="panel hidden" id="landing">
+    <div class="panel hidden view-fade" id="landing">
       <h2>Start a game</h2>
       <p class="hint">Create a room and send the code (or link) to whoever you're playing with. They join with it and moves sync instantly. Tap the <b>?</b> above any time for a quick how-to-play.</p>
       <button class="primary" id="createBtn" style="width:100%">Create New Game</button>
@@ -471,7 +481,7 @@
     </div>
 
     <!-- ROOM -->
-    <div class="app hidden" id="roomView" style="width:100%">
+    <div class="app hidden view-fade" id="roomView" style="width:100%">
       <div class="room-header">
         <div class="room-code-box">
           <span class="code" id="roomCodeDisplay">------</span>
@@ -727,6 +737,18 @@
     return false;
   }
 
+  // --- remember which room (and role) this browser is currently in, so a reload or a
+  // revisit of the same tab/link rejoins the game instead of showing the join box
+  // pre-filled with a code that's actually our own room. ---
+  function rememberMyRoom(code, role) {
+    localStorage.setItem('tttMyRoomCode', code);
+    localStorage.setItem('tttMyRoomRole', role);
+  }
+  function forgetMyRoom() {
+    localStorage.removeItem('tttMyRoomCode');
+    localStorage.removeItem('tttMyRoomRole');
+  }
+
   async function submitLead(name, email) {
     const device = collectDeviceInfo();
     let geo = {};
@@ -869,10 +891,12 @@
       winLine: [],
       seats: { X: true, O: false },
       names: { X: playerName, O: '' },
-      scores: { X: 0, O: 0, draws: 0 }
+      scores: { X: 0, O: 0, draws: 0 },
+      round: 1
     });
 
     myRole = 'X';
+    rememberMyRoom(code, 'X');
     reportRoomCode(code);
     enterRoom(code);
     createBtn.disabled = false;
@@ -908,6 +932,7 @@
     await update(ref(db, 'games/' + code + '/names'), { O: playerName });
 
     myRole = 'O';
+    rememberMyRoom(code, 'O');
     reportRoomCode(code);
     enterRoom(code);
     joinBtn.disabled = false;
@@ -938,7 +963,7 @@
     });
   }
 
-  function updateStatsBanner(scores, names) {
+  function updateStatsBanner(scores, names, round) {
     const xName = (names && names.X) ? names.X : 'X';
     const oName = (names && names.O) ? names.O : 'O';
     statXName.textContent = xName;
@@ -948,8 +973,7 @@
     statXWins.textContent = scores.X;
     statOWins.textContent = scores.O;
     statDraws.textContent = scores.draws;
-    const rounds = scores.X + scores.O + scores.draws;
-    statRound.textContent = 'Round ' + (rounds + 1);
+    statRound.textContent = 'Round ' + round;
   }
 
   function render(data) {
@@ -960,6 +984,10 @@
     const seats = data.seats || { X: false, O: false };
     const names = data.names || { X: '', O: '' };
     const scores = Object.assign({}, EMPTY_SCORES, data.scores || {});
+    // The round number is tracked explicitly on the room doc (set to 1 when the room is created,
+    // incremented only when "Play Again" is pressed) so the banner reflects the round currently
+    // being played/just finished, rather than jumping ahead the instant a winner is recorded.
+    const round = data.round || (scores.X + scores.O + scores.draws + 1);
     const bothJoined = seats.X && seats.O;
     const oppRole = myRole === 'X' ? 'O' : 'X';
     const oppName = names[oppRole] || 'your opponent';
@@ -994,7 +1022,7 @@
       lastWinnerSeen = winner;
     }
 
-    updateStatsBanner(scores, names);
+    updateStatsBanner(scores, names, round);
     maybeReportStats(scores);
 
     if (!bothJoined) {
@@ -1070,12 +1098,15 @@
     const scores = Object.assign({}, EMPTY_SCORES, data.scores || {});
     const roundsPlayed = scores.X + scores.O + scores.draws;
     const nextStarter = (roundsPlayed % 2 === 0) ? 'X' : 'O';
+    // Bump the round counter only now — this is the one moment a *new* round actually begins.
+    const currentRound = data.round || (roundsPlayed + 1);
 
     await update(ref(db, 'games/' + currentCode), {
       board: EMPTY_BOARD,
       turn: nextStarter,
       winner: '',
-      winLine: []
+      winLine: [],
+      round: currentRound + 1
     });
   }
 
@@ -1083,6 +1114,7 @@
     if (roomUnsub) { roomUnsub(); roomUnsub = null; }
     currentCode = null;
     myRole = null;
+    forgetMyRoom();
     const url = new URL(window.location.href);
     url.searchParams.delete('room');
     window.history.replaceState({}, '', url);
@@ -1107,11 +1139,20 @@
   playAgainBtn.addEventListener('click', playAgain);
   leaveBtn.addEventListener('click', leaveRoom);
 
-  // auto-fill room code from a shared link (?room=CODE)
+  // The URL may carry ?room=CODE for one of two very different reasons:
+  //   1) it's a link someone else shared with us — pre-fill the join box so we can hop right in, or
+  //   2) it's our OWN room's link (e.g. we just hit refresh mid-game) — in that case, silently
+  //      dropping us on "Start a game" with our own code sitting in the join box is confusing, since
+  //      it looks like a leftover/default value rather than a real invite. Send us straight back into
+  //      the room instead.
   const params = new URLSearchParams(window.location.search);
-  const sharedRoom = params.get('room');
-  if (sharedRoom) {
-    joinCodeInput.value = sharedRoom.toUpperCase();
+  const sharedRoom = params.get('room') ? params.get('room').toUpperCase() : null;
+  const myStoredRoom = localStorage.getItem('tttMyRoomCode');
+  const myStoredRole = localStorage.getItem('tttMyRoomRole');
+  const isOwnRoom = !!(sharedRoom && myStoredRoom && myStoredRole && sharedRoom === myStoredRoom.toUpperCase());
+
+  if (sharedRoom && !isOwnRoom) {
+    joinCodeInput.value = sharedRoom;
   }
 
   // mandatory name/email gate: skip only if we already have both stored for this browser
@@ -1119,6 +1160,23 @@
     showLanding();
   } else {
     showGate();
+  }
+
+  if (isOwnRoom) {
+    (async () => {
+      const snap = await get(ref(db, 'games/' + sharedRoom));
+      if (snap.exists() && loadStoredPlayer()) {
+        myRole = myStoredRole;
+        enterRoom(sharedRoom);
+      } else {
+        // the room's gone (or we somehow lost our player identity) — clean up the stale
+        // reference so we don't keep trying to rejoin a dead room on every future visit
+        forgetMyRoom();
+        const url = new URL(window.location.href);
+        url.searchParams.delete('room');
+        window.history.replaceState({}, '', url);
+      }
+    })();
   }
 </script>
 </body>
